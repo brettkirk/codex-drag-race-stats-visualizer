@@ -99,14 +99,14 @@ function App() {
           <p className="eyebrow">Drag Race Stats Visualizer</p>
           <h1>Track queens, hometowns, wins, and lip syncs.</h1>
           <p className="intro">
-            A Season 1 analytics dashboard for RuPaul's Drag Race with
+            A Seasons 1–3 analytics dashboard for RuPaul's Drag Race with
             page-ready layouts for a US map, searchable queen statistics, and
             chart cards.
           </p>
         </div>
         <div className="hero-card" aria-label="Dataset summary">
           <span className="hero-number">{queenStats.length}</span>
-          <span>featured queens in the Season 1 dataset</span>
+          <span>featured queens across the Seasons 1–3 dataset</span>
         </div>
       </header>
 
