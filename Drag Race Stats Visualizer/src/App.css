@@ -122,7 +122,11 @@
   border: 1px solid var(--border);
   border-radius: 24px;
   background:
-    radial-gradient(circle at 20% 20%, rgba(255, 57, 172, 0.16), transparent 28%),
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(255, 57, 172, 0.16),
+      transparent 28%
+    ),
     linear-gradient(135deg, rgba(123, 92, 255, 0.16), rgba(255, 255, 255, 0.02));
 }
 
@@ -412,5 +416,83 @@ tbody tr:hover {
   .us-map svg {
     min-height: 220px;
   }
+}
 
+.judges-layout {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.season-judge-list {
+  display: grid;
+  gap: 16px;
+}
+
+.season-judge-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.35fr) minmax(0, 1fr);
+  gap: 20px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 20px;
+  background: var(--accent-bg);
+}
+
+.season-judge-card h3,
+.season-judge-card p {
+  margin: 0;
+}
+
+.season-judge-card h3 {
+  color: var(--text-h);
+}
+
+.season-judge-card p:not(.season-label) {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.season-label {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.season-judge-card ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.season-judge-card li {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.guest-link-list div {
+  display: grid;
+  gap: 4px;
+}
+
+.guest-link-list strong {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .judges-layout,
+  .season-judge-card {
+    grid-template-columns: 1fr;
+  }
 }
