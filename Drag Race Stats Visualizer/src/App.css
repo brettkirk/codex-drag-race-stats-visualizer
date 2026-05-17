@@ -316,6 +316,31 @@ th {
   text-transform: uppercase;
 }
 
+th button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+th button:focus-visible {
+  outline: 3px solid rgba(255, 57, 172, 0.36);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.sort-indicator {
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+
 tbody tr:hover {
   background: var(--accent-bg);
 }
@@ -339,7 +364,7 @@ tbody tr:hover {
 
 .bar-row {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(120px, 0.28fr) minmax(0, 1fr) 32px;
   gap: 12px;
   align-items: center;
 }

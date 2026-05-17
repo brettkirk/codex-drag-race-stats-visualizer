@@ -12,6 +12,53 @@ import './App.css'
 
 type Page = 'map' | 'table' | 'charts' | 'judges'
 
+type SortDirection = 'asc' | 'desc'
+type QueenSortKey =
+  | 'name'
+  | 'primarySeasonName'
+  | 'hometown'
+  | 'region'
+  | 'placementsLabel'
+  | 'challengeWins'
+  | 'lipSyncs'
+
+type TableColumn = {
+  key: QueenSortKey
+  label: string
+  getValue: (queen: DashboardQueen) => string | number
+}
+
+const tableColumns: TableColumn[] = [
+  { key: 'name', label: 'Queen', getValue: (queen) => queen.name },
+  {
+    key: 'primarySeasonName',
+    label: 'Season',
+    getValue: (queen) => queen.primarySeasonName,
+  },
+  {
+    key: 'hometown',
+    label: 'Hometown',
+    getValue: (queen) => `${queen.hometown}, ${queen.state}`,
+  },
+  { key: 'region', label: 'Region', getValue: (queen) => queen.region },
+  {
+    key: 'placementsLabel',
+    label: 'Placement',
+    getValue: (queen) => queen.placementsLabel,
+  },
+  {
+    key: 'challengeWins',
+    label: 'Wins',
+    getValue: (queen) => queen.challengeWins,
+  },
+  { key: 'lipSyncs', label: 'Lip syncs', getValue: (queen) => queen.lipSyncs },
+]
+
+const sortCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base',
+})
+
 const mapStyleUrl =
   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
@@ -69,16 +116,17 @@ function App() {
     }, {})
   }, [])
 
-  const regionTotals = useMemo(() => {
-    return Object.entries(
-      queenStats.reduce<Record<string, number>>((totals, queen) => {
-        totals[queen.region] = (totals[queen.region] ?? 0) + 1
-        return totals
-      }, {}),
-    ).sort(([, totalA], [, totalB]) => totalB - totalA)
-  }, [])
+  const stateDistributionTotals = useMemo(() => {
+    return Object.entries(stateTotals).sort(
+      ([stateA, totalA], [stateB, totalB]) =>
+        totalB - totalA || sortCollator.compare(stateA, stateB),
+    )
+  }, [stateTotals])
 
-  const maxRegionTotal = Math.max(...regionTotals.map(([, total]) => total))
+  const maxStateDistributionTotal = Math.max(
+    1,
+    ...stateDistributionTotals.map(([, total]) => total),
+  )
   const totalChallengeWins = queenStats.reduce(
     (total, queen) => total + queen.challengeWins,
     0,
@@ -134,8 +182,8 @@ function App() {
         )}
         {activePage === 'charts' && (
           <ChartsPage
-            maxRegionTotal={maxRegionTotal}
-            regionTotals={regionTotals}
+            maxStateDistributionTotal={maxStateDistributionTotal}
+            stateDistributionTotals={stateDistributionTotals}
             totalChallengeWins={totalChallengeWins}
             totalLipSyncs={totalLipSyncs}
           />
@@ -294,6 +342,42 @@ function TablePage({
   query: string
   setQuery: (query: string) => void
 }) {
+  const [sortConfig, setSortConfig] = useState<{
+    key: QueenSortKey
+    direction: SortDirection
+  }>({ key: 'name', direction: 'asc' })
+
+  const sortedQueens = useMemo(() => {
+    const sortColumn = tableColumns.find(
+      (column) => column.key === sortConfig.key,
+    )
+
+    if (!sortColumn) {
+      return filteredQueens
+    }
+
+    return [...filteredQueens].sort((queenA, queenB) => {
+      const valueA = sortColumn.getValue(queenA)
+      const valueB = sortColumn.getValue(queenB)
+      const comparison =
+        typeof valueA === 'number' && typeof valueB === 'number'
+          ? valueA - valueB
+          : sortCollator.compare(String(valueA), String(valueB))
+
+      return sortConfig.direction === 'asc' ? comparison : -comparison
+    })
+  }, [filteredQueens, sortConfig])
+
+  const handleSort = (key: QueenSortKey) => {
+    setSortConfig((currentSort) => ({
+      key,
+      direction:
+        currentSort.key === key && currentSort.direction === 'asc'
+          ? 'desc'
+          : 'asc',
+    }))
+  }
+
   return (
     <section className="panel" aria-labelledby="table-title">
       <div className="table-toolbar">
@@ -320,17 +404,41 @@ function TablePage({
         <table>
           <thead>
             <tr>
-              <th>Queen</th>
-              <th>Season</th>
-              <th>Hometown</th>
-              <th>Region</th>
-              <th>Placement</th>
-              <th>Wins</th>
-              <th>Lip syncs</th>
+              {tableColumns.map((column) => {
+                const isSorted = sortConfig.key === column.key
+                const sortDirection = isSorted ? sortConfig.direction : undefined
+
+                return (
+                  <th
+                    key={column.key}
+                    aria-sort={
+                      sortDirection === 'asc'
+                        ? 'ascending'
+                        : sortDirection === 'desc'
+                          ? 'descending'
+                          : 'none'
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSort(column.key)}
+                    >
+                      <span>{column.label}</span>
+                      <span aria-hidden="true" className="sort-indicator">
+                        {isSorted
+                          ? sortConfig.direction === 'asc'
+                            ? '▲'
+                            : '▼'
+                          : '↕'}
+                      </span>
+                    </button>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
-            {filteredQueens.map((queen) => (
+            {sortedQueens.map((queen) => (
               <tr key={queen.id}>
                 <td>{queen.name}</td>
                 <td>{queen.primarySeasonName}</td>
@@ -403,30 +511,19 @@ function GuestJudgesPage({
           <span>{totalGuestJudgeLinks}</span>
           <p>season judge links</p>
         </article>
-        <div className="state-list guest-link-list">
-          <h3>Guest season index</h3>
-          {guests.map((guest) => (
-            <div key={guest.id}>
-              <span>{guest.name}</span>
-              <strong>
-                {guest.seasons.map((season) => season.name).join(', ')}
-              </strong>
-            </div>
-          ))}
-        </div>
       </aside>
     </section>
   )
 }
 
 function ChartsPage({
-  maxRegionTotal,
-  regionTotals,
+  maxStateDistributionTotal,
+  stateDistributionTotals,
   totalChallengeWins,
   totalLipSyncs,
 }: {
-  maxRegionTotal: number
-  regionTotals: [string, number][]
+  maxStateDistributionTotal: number
+  stateDistributionTotals: [string, number][]
   totalChallengeWins: number
   totalLipSyncs: number
 }) {
@@ -439,18 +536,23 @@ function ChartsPage({
       <div className="panel">
         <div className="section-heading">
           <p className="eyebrow">Charts</p>
-          <h2 id="charts-title">Regional distribution</h2>
-          <p>Simple CSS bars keep this first version dependency-free.</p>
+          <h2 id="charts-title">State and territory distribution</h2>
+          <p>
+            Distribution now groups queens by the state or territory they are
+            from while keeping lightweight CSS bars.
+          </p>
         </div>
 
-        <div className="bar-chart" aria-label="Queens by US region">
-          {regionTotals.map(([region, total]) => (
-            <div className="bar-row" key={region}>
-              <span>{region}</span>
+        <div className="bar-chart" aria-label="Queens by state or territory">
+          {stateDistributionTotals.map(([state, total]) => (
+            <div className="bar-row" key={state}>
+              <span>{state}</span>
               <div className="bar-track">
                 <div
                   className="bar-fill"
-                  style={{ width: `${(total / maxRegionTotal) * 100}%` }}
+                  style={{
+                    width: `${(total / maxStateDistributionTotal) * 100}%`,
+                  }}
                 />
               </div>
               <strong>{total}</strong>
