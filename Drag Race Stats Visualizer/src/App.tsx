@@ -1,22 +1,12 @@
 import { useMemo, useState } from 'react'
+import {
+  dashboardQueensQuery,
+  queryDragRaceStore,
+  type DashboardQueen,
+} from './data/dragRaceGraphql'
 import './App.css'
 
 type Page = 'map' | 'table' | 'charts'
-
-type QueenStat = {
-  id: number
-  name: string
-  season: string
-  hometown: string
-  state: string
-  region: string
-  placement: string
-  challengeWins: number
-  lipSyncs: number
-  franchise: string
-  mapX: number
-  mapY: number
-}
 
 type StateTile = {
   code: string
@@ -92,182 +82,14 @@ const pinOffsets = [
   [7, 8],
 ] as const
 
-const queenStats: QueenStat[] = [
-  {
-    id: 1,
-    name: 'Sasha Colby',
-    season: 'US Season 15',
-    hometown: 'Los Angeles',
-    state: 'CA',
-    region: 'West',
-    placement: 'Winner',
-    challengeWins: 4,
-    lipSyncs: 2,
-    franchise: 'United States',
-    mapX: 14,
-    mapY: 61,
-  },
-  {
-    id: 2,
-    name: 'Symone',
-    season: 'US Season 13',
-    hometown: 'Los Angeles',
-    state: 'CA',
-    region: 'West',
-    placement: 'Winner',
-    challengeWins: 4,
-    lipSyncs: 3,
-    franchise: 'United States',
-    mapX: 16,
-    mapY: 58,
-  },
-  {
-    id: 3,
-    name: 'Bianca Del Rio',
-    season: 'US Season 6',
-    hometown: 'New York City',
-    state: 'NY',
-    region: 'Northeast',
-    placement: 'Winner',
-    challengeWins: 3,
-    lipSyncs: 0,
-    franchise: 'United States',
-    mapX: 87,
-    mapY: 29,
-  },
-  {
-    id: 4,
-    name: 'Bob the Drag Queen',
-    season: 'US Season 8',
-    hometown: 'New York City',
-    state: 'NY',
-    region: 'Northeast',
-    placement: 'Winner',
-    challengeWins: 3,
-    lipSyncs: 1,
-    franchise: 'United States',
-    mapX: 89,
-    mapY: 33,
-  },
-  {
-    id: 5,
-    name: 'Jinkx Monsoon',
-    season: 'US Season 5',
-    hometown: 'Seattle',
-    state: 'WA',
-    region: 'West',
-    placement: 'Winner',
-    challengeWins: 2,
-    lipSyncs: 1,
-    franchise: 'United States',
-    mapX: 14,
-    mapY: 15,
-  },
-  {
-    id: 6,
-    name: 'Willow Pill',
-    season: 'US Season 14',
-    hometown: 'Denver',
-    state: 'CO',
-    region: 'Mountain',
-    placement: 'Winner',
-    challengeWins: 1,
-    lipSyncs: 1,
-    franchise: 'United States',
-    mapX: 43,
-    mapY: 45,
-  },
-  {
-    id: 7,
-    name: 'Jaida Essence Hall',
-    season: 'US Season 12',
-    hometown: 'Milwaukee',
-    state: 'WI',
-    region: 'Midwest',
-    placement: 'Winner',
-    challengeWins: 3,
-    lipSyncs: 2,
-    franchise: 'United States',
-    mapX: 64,
-    mapY: 31,
-  },
-  {
-    id: 8,
-    name: 'Shea Couleé',
-    season: 'All Stars 5',
-    hometown: 'Chicago',
-    state: 'IL',
-    region: 'Midwest',
-    placement: 'Winner',
-    challengeWins: 2,
-    lipSyncs: 3,
-    franchise: 'All Stars',
-    mapX: 66,
-    mapY: 41,
-  },
-  {
-    id: 9,
-    name: 'Trixie Mattel',
-    season: 'All Stars 3',
-    hometown: 'Milwaukee',
-    state: 'WI',
-    region: 'Midwest',
-    placement: 'Winner',
-    challengeWins: 2,
-    lipSyncs: 2,
-    franchise: 'All Stars',
-    mapX: 62,
-    mapY: 28,
-  },
-  {
-    id: 10,
-    name: 'Aquaria',
-    season: 'US Season 10',
-    hometown: 'New York City',
-    state: 'NY',
-    region: 'Northeast',
-    placement: 'Winner',
-    challengeWins: 3,
-    lipSyncs: 1,
-    franchise: 'United States',
-    mapX: 91,
-    mapY: 31,
-  },
-  {
-    id: 11,
-    name: 'Kylie Sonique Love',
-    season: 'All Stars 6',
-    hometown: 'Atlanta',
-    state: 'GA',
-    region: 'South',
-    placement: 'Winner',
-    challengeWins: 1,
-    lipSyncs: 4,
-    franchise: 'All Stars',
-    mapX: 76,
-    mapY: 63,
-  },
-  {
-    id: 12,
-    name: 'Yvie Oddly',
-    season: 'US Season 11',
-    hometown: 'Denver',
-    state: 'CO',
-    region: 'Mountain',
-    placement: 'Winner',
-    challengeWins: 1,
-    lipSyncs: 3,
-    franchise: 'United States',
-    mapX: 45,
-    mapY: 48,
-  },
-]
-
 const navItems: { id: Page; label: string }[] = [
   { id: 'map', label: 'Map' },
   { id: 'table', label: 'Statistics Table' },
   { id: 'charts', label: 'Charts' },
 ]
+
+const dashboardData = queryDragRaceStore(dashboardQueensQuery)
+const queenStats = dashboardData.queens
 
 function App() {
   const [activePage, setActivePage] = useState<Page>('map')
@@ -283,11 +105,11 @@ function App() {
     return queenStats.filter((queen) =>
       [
         queen.name,
-        queen.season,
+        queen.primarySeasonName,
         queen.hometown,
         queen.state,
         queen.region,
-        queen.placement,
+        queen.placementsLabel,
         queen.franchise,
       ]
         .join(' ')
@@ -374,7 +196,7 @@ function App() {
 function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
   const uniqueStates = Object.keys(stateTotals).length
   const statesWithQueens = new Set(Object.keys(stateTotals))
-  const queensByState = queenStats.reduce<Record<string, QueenStat[]>>((groups, queen) => {
+  const queensByState = queenStats.reduce<Record<string, DashboardQueen[]>>((groups, queen) => {
     groups[queen.state] = [...(groups[queen.state] ?? []), queen]
     return groups
   }, {})
@@ -491,7 +313,7 @@ function TablePage({
   query,
   setQuery,
 }: {
-  filteredQueens: QueenStat[]
+  filteredQueens: DashboardQueen[]
   query: string
   setQuery: (query: string) => void
 }) {
@@ -533,12 +355,12 @@ function TablePage({
             {filteredQueens.map((queen) => (
               <tr key={queen.id}>
                 <td>{queen.name}</td>
-                <td>{queen.season}</td>
+                <td>{queen.primarySeasonName}</td>
                 <td>
                   {queen.hometown}, {queen.state}
                 </td>
                 <td>{queen.region}</td>
-                <td>{queen.placement}</td>
+                <td>{queen.placementsLabel}</td>
                 <td>{queen.challengeWins}</td>
                 <td>{queen.lipSyncs}</td>
               </tr>
@@ -604,7 +426,7 @@ function ChartsPage({
             <span>#{index + 1}</span>
             <div>
               <h3>{queen.name}</h3>
-              <p>{queen.season}</p>
+              <p>{queen.primarySeasonName}</p>
             </div>
             <strong>{queen.challengeWins}</strong>
           </article>
