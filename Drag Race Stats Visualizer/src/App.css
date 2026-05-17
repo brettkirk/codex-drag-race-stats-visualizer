@@ -130,26 +130,51 @@
   min-height: 360px;
 }
 
-.map-shape {
+.state-tile {
   fill: var(--map-fill);
-  stroke: var(--accent);
+  stroke: rgba(123, 92, 255, 0.42);
   stroke-linejoin: round;
-  stroke-width: 0.9;
+  stroke-width: 1.4;
+  transition:
+    fill 180ms ease,
+    stroke-color 180ms ease,
+    transform 180ms ease;
 }
 
-.alaska,
-.hawaii {
-  opacity: 0.55;
+.state-tile.represented {
+  fill: rgba(123, 92, 255, 0.32);
+  stroke: var(--accent);
+}
+
+.state-tile-group:hover .state-tile {
+  fill: var(--accent-bg);
+  transform: translateY(-1px);
+}
+
+.state-label {
+  fill: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 900;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.state-label.represented {
+  fill: var(--text-h);
+}
+
+.map-pin-group {
+  filter: url('#pin-shadow');
 }
 
 .map-pin-halo {
-  fill: rgba(255, 57, 172, 0.18);
+  fill: rgba(255, 57, 172, 0.2);
 }
 
 .map-pin {
   fill: var(--hot-pink);
   stroke: #fff;
-  stroke-width: 0.8;
+  stroke-width: 1.6;
 }
 
 .stat-stack,
@@ -333,7 +358,15 @@ tbody tr:hover {
     min-height: 160px;
   }
 
+  .us-map {
+    padding: 10px;
+  }
+
   .us-map svg {
-    min-height: 240px;
+    min-height: 220px;
+  }
+
+  .state-label {
+    font-size: 0.72rem;
   }
 }
