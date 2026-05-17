@@ -1,3 +1,6 @@
+import { buildSchema, graphqlSync } from 'graphql'
+import type { ExecutionResult } from 'graphql'
+
 export type Guest = {
   id: number
   name: string
@@ -74,6 +77,8 @@ export const dragRaceGraphqlSchema = /* GraphQL */ `
     challengeWins: Int!
     lipSyncs: Int!
     franchise: String!
+    mapX: Float!
+    mapY: Float!
   }
 
   type Season {
@@ -116,6 +121,8 @@ export const dashboardQueensQuery = /* GraphQL */ `
       challengeWins
       lipSyncs
       franchise
+      mapX
+      mapY
       seasons {
         id
         name
@@ -367,6 +374,36 @@ const appearanceRecords: AppearanceRecord[] = [
   { queenId: 12, seasonId: 8, placement: 'Winner' },
 ]
 
+type DragRaceQueryResult = {
+  queens: (Omit<DashboardQueen, 'seasons' | 'primarySeasonName' | 'placementsLabel'> & {
+    seasons?: {
+      id: number
+      name: string
+    }[]
+    appearances?: {
+      season: {
+        id: number
+        name: string
+      }
+      placement: string
+    }[]
+  })[]
+  seasons: (Omit<DashboardSeason, 'queens'> & {
+    queens?: {
+      id: number
+      name: string
+    }[]
+    appearances?: {
+      queen: {
+        id: number
+        name: string
+      }
+      placement: string
+    }[]
+  })[]
+}
+
+const dragRaceSchema = buildSchema(dragRaceGraphqlSchema)
 const queenById = new Map(queenRecords.map((queen) => [queen.id, queen]))
 const seasonById = new Map(seasonRecords.map((season) => [season.id, season]))
 
@@ -378,62 +415,138 @@ function requireRecord<T>(record: T | undefined, label: string): T {
   return record
 }
 
-function appearanceToDashboard(record: AppearanceRecord) {
-  const season = requireRecord(seasonById.get(record.seasonId), `season ${record.seasonId}`)
+type ResolvedAppearance = {
+  queen: ResolvedQueen
+  season: ResolvedSeason
+  placement: string
+}
+
+type ResolvedQueen = QueenRecord & {
+  seasons: () => ResolvedSeason[]
+  appearances: () => ResolvedAppearance[]
+}
+
+type ResolvedSeason = SeasonRecord & {
+  queens: () => ResolvedQueen[]
+  appearances: () => ResolvedAppearance[]
+}
+
+function getAppearancesForQueen(queenId: number): ResolvedAppearance[] {
+  return appearanceRecords
+    .filter((appearance) => appearance.queenId === queenId)
+    .map((appearance) => ({
+      queen: getQueenById(appearance.queenId),
+      season: getSeasonById(appearance.seasonId),
+      placement: appearance.placement,
+    }))
+}
+
+function getAppearancesForSeason(seasonId: number): ResolvedAppearance[] {
+  return appearanceRecords
+    .filter((appearance) => appearance.seasonId === seasonId)
+    .map((appearance) => ({
+      queen: getQueenById(appearance.queenId),
+      season: getSeasonById(appearance.seasonId),
+      placement: appearance.placement,
+    }))
+}
+
+function getQueenById(queenId: number): ResolvedQueen {
+  const queen = requireRecord(queenById.get(queenId), `queen ${queenId}`)
 
   return {
-    id: season.id,
-    name: season.name,
-    placement: record.placement,
+    ...queen,
+    appearances: () => getAppearancesForQueen(queen.id),
+    seasons: () => getAppearancesForQueen(queen.id).map((appearance) => appearance.season),
   }
 }
 
-function getDashboardQueens(): DashboardQueen[] {
-  return queenRecords.map((queen) => {
-    const seasons = appearanceRecords
-      .filter((appearance) => appearance.queenId === queen.id)
-      .map(appearanceToDashboard)
-    const primarySeason = seasons.at(-1)
+function getSeasonById(seasonId: number): ResolvedSeason {
+  const season = requireRecord(seasonById.get(seasonId), `season ${seasonId}`)
 
-    return {
-      ...queen,
-      seasons,
-      primarySeasonName: primarySeason?.name ?? 'Unknown season',
-      placementsLabel: seasons
-        .map((season) => `${season.name}: ${season.placement}`)
-        .join('; '),
-    }
-  })
+  return {
+    ...season,
+    appearances: () => getAppearancesForSeason(season.id),
+    queens: () => getAppearancesForSeason(season.id).map((appearance) => appearance.queen),
+  }
 }
 
-function getDashboardSeasons(): DashboardSeason[] {
-  return seasonRecords.map((season) => ({
-    id: season.id,
-    name: season.name,
-    guestJudges: season.guestJudges,
-    queens: appearanceRecords
-      .filter((appearance) => appearance.seasonId === season.id)
-      .map((appearance) => {
-        const queen = requireRecord(queenById.get(appearance.queenId), `queen ${appearance.queenId}`)
+const dragRaceResolvers = {
+  queens: () => queenRecords.map((queen) => getQueenById(queen.id)),
+  seasons: () => seasonRecords.map((season) => getSeasonById(season.id)),
+}
 
-        return {
-          id: queen.id,
-          name: queen.name,
-          placement: appearance.placement,
-        }
-      }),
-  }))
+function assertDragRaceQueryData(
+  result: ExecutionResult,
+): asserts result is ExecutionResult<DragRaceQueryResult> & { data: DragRaceQueryResult } {
+  if (result.errors?.length) {
+    throw new Error(
+      result.errors.map((error) => error.message).join('; '),
+    )
+  }
+
+  if (!result.data) {
+    throw new Error('Drag Race GraphQL query returned no data')
+  }
+}
+
+function getPlacementLabel(
+  appearances: DragRaceQueryResult['queens'][number]['appearances'] = [],
+) {
+  return appearances
+    .map((appearance) => `${appearance.season.name}: ${appearance.placement}`)
+    .join('; ')
+}
+
+function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
+  return {
+    queens: data.queens.map((queen) => {
+      const seasons = (queen.appearances ?? []).map((appearance) => ({
+        id: appearance.season.id,
+        name: appearance.season.name,
+        placement: appearance.placement,
+      }))
+      const primarySeason = seasons.at(-1)
+
+      return {
+        id: queen.id,
+        name: queen.name,
+        hometown: queen.hometown,
+        state: queen.state,
+        region: queen.region,
+        lat: queen.lat,
+        lon: queen.lon,
+        challengeWins: queen.challengeWins,
+        lipSyncs: queen.lipSyncs,
+        franchise: queen.franchise,
+        mapX: queen.mapX,
+        mapY: queen.mapY,
+        seasons,
+        primarySeasonName: primarySeason?.name ?? 'Unknown season',
+        placementsLabel: getPlacementLabel(queen.appearances),
+      }
+    }),
+    seasons: data.seasons.map((season) => ({
+      id: season.id,
+      name: season.name,
+      guestJudges: season.guestJudges,
+      queens: (season.appearances ?? []).map((appearance) => ({
+        id: appearance.queen.id,
+        name: appearance.queen.name,
+        placement: appearance.placement,
+      })),
+    })),
+  }
 }
 
 export function queryDragRaceStore(query: string): DashboardData {
-  const normalizedQuery = query.replace(/\s+/g, ' ').trim()
+  const result = graphqlSync({
+    schema: dragRaceSchema,
+    source: query,
+    rootValue: dragRaceResolvers,
+  })
 
-  if (!normalizedQuery.startsWith('query DashboardQueens')) {
-    throw new Error('Unsupported Drag Race GraphQL query operation')
-  }
+  assertDragRaceQueryData(result)
 
-  return {
-    queens: getDashboardQueens(),
-    seasons: getDashboardSeasons(),
-  }
+  return normalizeDashboardData(result.data)
 }
