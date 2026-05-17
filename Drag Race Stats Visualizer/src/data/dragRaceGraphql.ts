@@ -170,6 +170,7 @@ export const dashboardQueensQuery = /* GraphQL */ `
         queen {
           id
           name
+          franchise
         }
         placement
       }
@@ -964,6 +965,7 @@ type DragRaceQueryResult = {
       queen: {
         id: number
         name: string
+        franchise: string
       }
       placement: string
     }[]
@@ -1123,25 +1125,59 @@ function assertDragRaceQueryData(
   }
 }
 
-function getPlacementLabel(
-  appearances: DragRaceQueryResult['queens'][number]['appearances'] = [],
-) {
-  return appearances
-    .map((appearance) => `${appearance.season.name}: ${appearance.placement}`)
+type DashboardQueenAccumulator = Omit<
+  DashboardQueen,
+  'seasons' | 'primarySeasonName' | 'placementsLabel'
+> & {
+  seasonsById: Map<number, DashboardQueen['seasons'][number]>
+}
+
+function getQueenIdentityKey(queen: Pick<Queen, 'name' | 'franchise'>) {
+  return `${queen.franchise}:${queen.name.trim().toLowerCase()}`
+}
+
+function getSeasonNamesLabel(seasons: DashboardQueen['seasons']) {
+  return seasons.map((season) => season.name).join(', ') || 'Unknown season'
+}
+
+function getPlacementLabel(seasons: DashboardQueen['seasons']) {
+  return seasons
+    .map((season) => `${season.name}: ${season.placement}`)
     .join('; ')
 }
 
-function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
-  return {
-    queens: data.queens.map((queen) => {
+function getSortedQueenSeasons(
+  seasonsById: DashboardQueenAccumulator['seasonsById'],
+) {
+  return [...seasonsById.values()].sort(
+    (seasonA, seasonB) => seasonA.id - seasonB.id,
+  )
+}
+
+function normalizeDashboardQueens(
+  queens: DragRaceQueryResult['queens'],
+): DashboardQueen[] {
+  const queensByIdentity = queens.reduce<Map<string, DashboardQueenAccumulator>>(
+    (dedupedQueens, queen) => {
+      const queenKey = getQueenIdentityKey(queen)
+      const existingQueen = dedupedQueens.get(queenKey)
       const seasons = (queen.appearances ?? []).map((appearance) => ({
         id: appearance.season.id,
         name: appearance.season.name,
         placement: appearance.placement,
       }))
-      const primarySeason = seasons.at(-1)
 
-      return {
+      if (existingQueen) {
+        seasons.forEach((season) => {
+          existingQueen.seasonsById.set(season.id, season)
+        })
+        existingQueen.challengeWins += queen.challengeWins
+        existingQueen.lipSyncs += queen.lipSyncs
+
+        return dedupedQueens
+      }
+
+      dedupedQueens.set(queenKey, {
         id: queen.id,
         name: queen.name,
         hometown: queen.hometown,
@@ -1152,17 +1188,51 @@ function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
         challengeWins: queen.challengeWins,
         lipSyncs: queen.lipSyncs,
         franchise: queen.franchise,
-        seasons,
-        primarySeasonName: primarySeason?.name ?? 'Unknown season',
-        placementsLabel: getPlacementLabel(queen.appearances),
-      }
-    }),
+        seasonsById: new Map(seasons.map((season) => [season.id, season])),
+      })
+
+      return dedupedQueens
+    },
+    new Map(),
+  )
+
+  return [...queensByIdentity.values()].map((queen) => {
+    const seasons = getSortedQueenSeasons(queen.seasonsById)
+
+    return {
+      id: queen.id,
+      name: queen.name,
+      hometown: queen.hometown,
+      state: queen.state,
+      region: queen.region,
+      lat: queen.lat,
+      lon: queen.lon,
+      challengeWins: queen.challengeWins,
+      lipSyncs: queen.lipSyncs,
+      franchise: queen.franchise,
+      seasons,
+      primarySeasonName: getSeasonNamesLabel(seasons),
+      placementsLabel: getPlacementLabel(seasons),
+    }
+  })
+}
+
+function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
+  const queens = normalizeDashboardQueens(data.queens)
+  const canonicalQueenIdByIdentity = new Map(
+    queens.map((queen) => [getQueenIdentityKey(queen), queen.id]),
+  )
+
+  return {
+    queens,
     seasons: data.seasons.map((season) => ({
       id: season.id,
       name: season.name,
       guestJudges: season.guestJudges ?? [],
       queens: (season.appearances ?? []).map((appearance) => ({
-        id: appearance.queen.id,
+        id:
+          canonicalQueenIdByIdentity.get(getQueenIdentityKey(appearance.queen)) ??
+          appearance.queen.id,
         name: appearance.queen.name,
         placement: appearance.placement,
       })),
