@@ -4,6 +4,8 @@ import type { ExecutionResult } from 'graphql'
 export type Guest = {
   id: number
   name: string
+  seasons: Season[]
+  appearances: GuestJudgeAppearance[]
 }
 
 export type Season = {
@@ -12,6 +14,7 @@ export type Season = {
   queens: Queen[]
   appearances: QueenSeasonAppearance[]
   guestJudges: Guest[]
+  guestJudgeAppearances: GuestJudgeAppearance[]
 }
 
 export type Queen = {
@@ -27,14 +30,17 @@ export type Queen = {
   challengeWins: number
   lipSyncs: number
   franchise: string
-  mapX: number
-  mapY: number
 }
 
 export type QueenSeasonAppearance = {
   queen: Queen
   season: Season
   placement: string
+}
+
+export type GuestJudgeAppearance = {
+  guest: Guest
+  season: Season
 }
 
 export type DashboardQueen = Omit<Queen, 'seasons' | 'appearances'> & {
@@ -47,6 +53,15 @@ export type DashboardQueen = Omit<Queen, 'seasons' | 'appearances'> & {
   placementsLabel: string
 }
 
+export type DashboardGuest = {
+  id: number
+  name: string
+  seasons: {
+    id: number
+    name: string
+  }[]
+}
+
 export type DashboardSeason = {
   id: number
   name: string
@@ -55,12 +70,16 @@ export type DashboardSeason = {
     name: string
     placement: string
   }[]
-  guestJudges: Guest[]
+  guestJudges: {
+    id: number
+    name: string
+  }[]
 }
 
 export type DashboardData = {
   queens: DashboardQueen[]
   seasons: DashboardSeason[]
+  guests: DashboardGuest[]
 }
 
 export const dragRaceGraphqlSchema = /* GraphQL */ `
@@ -77,8 +96,6 @@ export const dragRaceGraphqlSchema = /* GraphQL */ `
     challengeWins: Int!
     lipSyncs: Int!
     franchise: String!
-    mapX: Float!
-    mapY: Float!
   }
 
   type Season {
@@ -87,11 +104,19 @@ export const dragRaceGraphqlSchema = /* GraphQL */ `
     queens: [Queen!]!
     appearances: [QueenSeasonAppearance!]!
     guestJudges: [Guest!]!
+    guestJudgeAppearances: [GuestJudgeAppearance!]!
   }
 
   type Guest {
     id: Int!
     name: String!
+    seasons: [Season!]!
+    appearances: [GuestJudgeAppearance!]!
+  }
+
+  type GuestJudgeAppearance {
+    guest: Guest!
+    season: Season!
   }
 
   # Placement belongs on this join type because it is specific to a queen's
@@ -105,6 +130,7 @@ export const dragRaceGraphqlSchema = /* GraphQL */ `
   type Query {
     queens: [Queen!]!
     seasons: [Season!]!
+    guests: [Guest!]!
   }
 `
 
@@ -121,8 +147,6 @@ export const dashboardQueensQuery = /* GraphQL */ `
       challengeWins
       lipSyncs
       franchise
-      mapX
-      mapY
       seasons {
         id
         name
@@ -154,15 +178,32 @@ export const dashboardQueensQuery = /* GraphQL */ `
         name
       }
     }
+    guests {
+      id
+      name
+      seasons {
+        id
+        name
+      }
+    }
   }
 `
 
 type QueenRecord = Omit<Queen, 'seasons' | 'appearances'>
-type SeasonRecord = Omit<Season, 'queens' | 'appearances'>
+type SeasonRecord = Omit<
+  Season,
+  'queens' | 'appearances' | 'guestJudges' | 'guestJudgeAppearances'
+>
+type GuestRecord = Omit<Guest, 'seasons' | 'appearances'>
 type AppearanceRecord = {
   queenId: number
   seasonId: number
   placement: string
+}
+
+type GuestJudgeRecord = {
+  guestId: number
+  seasonId: number
 }
 
 const queenRecords: QueenRecord[] = [
@@ -177,8 +218,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 2,
     lipSyncs: 1,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 2,
@@ -191,8 +230,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 2,
     lipSyncs: 0,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 3,
@@ -205,8 +242,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 1,
     lipSyncs: 2,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 4,
@@ -219,8 +254,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 2,
     lipSyncs: 2,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 5,
@@ -233,8 +266,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 2,
     lipSyncs: 1,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 6,
@@ -247,8 +278,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 0,
     lipSyncs: 1,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 7,
@@ -261,8 +290,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 0,
     lipSyncs: 3,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 8,
@@ -275,8 +302,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 0,
     lipSyncs: 1,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
   {
     id: 9,
@@ -289,8 +314,6 @@ const queenRecords: QueenRecord[] = [
     challengeWins: 0,
     lipSyncs: 1,
     franchise: 'US',
-    mapX: 0,
-    mapY: 0,
   },
 ]
 
@@ -298,22 +321,28 @@ const seasonRecords: SeasonRecord[] = [
   {
     id: 1,
     name: 'RuPaul’s Drag Race Season 1',
-    guestJudges: [
-      { id: 1, name: 'Bob Mackie' },
-      { id: 2, name: 'Mike Ruiz' },
-      { id: 3, name: 'Frank Gatson Jr.' },
-      { id: 4, name: 'Michelle Williams' },
-      { id: 5, name: 'Howard Bragman' },
-      { id: 6, name: 'Debra Wilson' },
-      { id: 7, name: 'Gordon Espinet' },
-      { id: 8, name: 'Jenny Shimizu' },
-      { id: 9, name: 'Lucy Lawless' },
-      { id: 10, name: 'Robin Antin' },
-      { id: 11, name: 'Jeffrey Moran' },
-      { id: 12, name: 'María Conchita Alonso' },
-    ],
   },
 ]
+
+const guestRecords: GuestRecord[] = [
+  { id: 1, name: 'Bob Mackie' },
+  { id: 2, name: 'Mike Ruiz' },
+  { id: 3, name: 'Frank Gatson Jr.' },
+  { id: 4, name: 'Michelle Williams' },
+  { id: 5, name: 'Howard Bragman' },
+  { id: 6, name: 'Debra Wilson' },
+  { id: 7, name: 'Gordon Espinet' },
+  { id: 8, name: 'Jenny Shimizu' },
+  { id: 9, name: 'Lucy Lawless' },
+  { id: 10, name: 'Robin Antin' },
+  { id: 11, name: 'Jeffrey Moran' },
+  { id: 12, name: 'María Conchita Alonso' },
+]
+
+const guestJudgeRecords: GuestJudgeRecord[] = guestRecords.map((guest) => ({
+  guestId: guest.id,
+  seasonId: 1,
+}))
 
 const appearanceRecords: AppearanceRecord[] = [
   { queenId: 1, seasonId: 1, placement: 'Winner' },
@@ -328,7 +357,10 @@ const appearanceRecords: AppearanceRecord[] = [
 ]
 
 type DragRaceQueryResult = {
-  queens: (Omit<DashboardQueen, 'seasons' | 'primarySeasonName' | 'placementsLabel'> & {
+  queens: (Omit<
+    DashboardQueen,
+    'seasons' | 'primarySeasonName' | 'placementsLabel'
+  > & {
     seasons?: {
       id: number
       name: string
@@ -341,8 +373,12 @@ type DragRaceQueryResult = {
       placement: string
     }[]
   })[]
-  seasons: (Omit<DashboardSeason, 'queens'> & {
+  seasons: (Omit<DashboardSeason, 'queens' | 'guestJudges'> & {
     queens?: {
+      id: number
+      name: string
+    }[]
+    guestJudges?: {
       id: number
       name: string
     }[]
@@ -354,11 +390,18 @@ type DragRaceQueryResult = {
       placement: string
     }[]
   })[]
+  guests: (Omit<DashboardGuest, 'seasons'> & {
+    seasons?: {
+      id: number
+      name: string
+    }[]
+  })[]
 }
 
 const dragRaceSchema = buildSchema(dragRaceGraphqlSchema)
 const queenById = new Map(queenRecords.map((queen) => [queen.id, queen]))
 const seasonById = new Map(seasonRecords.map((season) => [season.id, season]))
+const guestById = new Map(guestRecords.map((guest) => [guest.id, guest]))
 
 function requireRecord<T>(record: T | undefined, label: string): T {
   if (!record) {
@@ -374,6 +417,11 @@ type ResolvedAppearance = {
   placement: string
 }
 
+type ResolvedGuestJudgeAppearance = {
+  guest: ResolvedGuest
+  season: ResolvedSeason
+}
+
 type ResolvedQueen = QueenRecord & {
   seasons: () => ResolvedSeason[]
   appearances: () => ResolvedAppearance[]
@@ -382,6 +430,13 @@ type ResolvedQueen = QueenRecord & {
 type ResolvedSeason = SeasonRecord & {
   queens: () => ResolvedQueen[]
   appearances: () => ResolvedAppearance[]
+  guestJudges: () => ResolvedGuest[]
+  guestJudgeAppearances: () => ResolvedGuestJudgeAppearance[]
+}
+
+type ResolvedGuest = GuestRecord & {
+  seasons: () => ResolvedSeason[]
+  appearances: () => ResolvedGuestJudgeAppearance[]
 }
 
 function getAppearancesForQueen(queenId: number): ResolvedAppearance[] {
@@ -404,13 +459,36 @@ function getAppearancesForSeason(seasonId: number): ResolvedAppearance[] {
     }))
 }
 
+function getGuestJudgeAppearancesForGuest(
+  guestId: number,
+): ResolvedGuestJudgeAppearance[] {
+  return guestJudgeRecords
+    .filter((appearance) => appearance.guestId === guestId)
+    .map((appearance) => ({
+      guest: getGuestById(appearance.guestId),
+      season: getSeasonById(appearance.seasonId),
+    }))
+}
+
+function getGuestJudgeAppearancesForSeason(
+  seasonId: number,
+): ResolvedGuestJudgeAppearance[] {
+  return guestJudgeRecords
+    .filter((appearance) => appearance.seasonId === seasonId)
+    .map((appearance) => ({
+      guest: getGuestById(appearance.guestId),
+      season: getSeasonById(appearance.seasonId),
+    }))
+}
+
 function getQueenById(queenId: number): ResolvedQueen {
   const queen = requireRecord(queenById.get(queenId), `queen ${queenId}`)
 
   return {
     ...queen,
     appearances: () => getAppearancesForQueen(queen.id),
-    seasons: () => getAppearancesForQueen(queen.id).map((appearance) => appearance.season),
+    seasons: () =>
+      getAppearancesForQueen(queen.id).map((appearance) => appearance.season),
   }
 }
 
@@ -420,21 +498,45 @@ function getSeasonById(seasonId: number): ResolvedSeason {
   return {
     ...season,
     appearances: () => getAppearancesForSeason(season.id),
-    queens: () => getAppearancesForSeason(season.id).map((appearance) => appearance.queen),
+    queens: () =>
+      getAppearancesForSeason(season.id).map((appearance) => appearance.queen),
+    guestJudgeAppearances: () => getGuestJudgeAppearancesForSeason(season.id),
+    guestJudges: () =>
+      getGuestJudgeAppearancesForSeason(season.id).map(
+        (appearance) => appearance.guest,
+      ),
+  }
+}
+
+function getGuestById(guestId: number): ResolvedGuest {
+  const guest = requireRecord(guestById.get(guestId), `guest ${guestId}`)
+
+  return {
+    ...guest,
+    appearances: () => getGuestJudgeAppearancesForGuest(guest.id),
+    seasons: () =>
+      getGuestJudgeAppearancesForGuest(guest.id).map(
+        (appearance) => appearance.season,
+      ),
   }
 }
 
 const dragRaceResolvers = {
   queens: () => queenRecords.map((queen) => getQueenById(queen.id)),
   seasons: () => seasonRecords.map((season) => getSeasonById(season.id)),
+  guests: () => guestRecords.map((guest) => getGuestById(guest.id)),
 }
 
 function assertDragRaceQueryData(
   result: ExecutionResult,
-): asserts result is ExecutionResult<DragRaceQueryResult> & { data: DragRaceQueryResult } {
+): asserts result is ExecutionResult<DragRaceQueryResult> & {
+  data: DragRaceQueryResult
+} {
   if (result.errors?.length) {
     throw new Error(
-      result.errors.map((error) => error.message).join('; '),
+      result.errors
+        .map((error: { message: string }) => error.message)
+        .join('; '),
     )
   }
 
@@ -472,8 +574,6 @@ function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
         challengeWins: queen.challengeWins,
         lipSyncs: queen.lipSyncs,
         franchise: queen.franchise,
-        mapX: queen.mapX,
-        mapY: queen.mapY,
         seasons,
         primarySeasonName: primarySeason?.name ?? 'Unknown season',
         placementsLabel: getPlacementLabel(queen.appearances),
@@ -482,12 +582,17 @@ function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
     seasons: data.seasons.map((season) => ({
       id: season.id,
       name: season.name,
-      guestJudges: season.guestJudges,
+      guestJudges: season.guestJudges ?? [],
       queens: (season.appearances ?? []).map((appearance) => ({
         id: appearance.queen.id,
         name: appearance.queen.name,
         placement: appearance.placement,
       })),
+    })),
+    guests: data.guests.map((guest) => ({
+      id: guest.id,
+      name: guest.name,
+      seasons: guest.seasons ?? [],
     })),
   }
 }

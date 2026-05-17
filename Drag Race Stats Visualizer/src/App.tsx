@@ -4,13 +4,16 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import {
   dashboardQueensQuery,
   queryDragRaceStore,
+  type DashboardGuest,
   type DashboardQueen,
+  type DashboardSeason,
 } from './data/dragRaceGraphql'
 import './App.css'
 
-type Page = 'map' | 'table' | 'charts'
+type Page = 'map' | 'table' | 'charts' | 'judges'
 
-const mapStyleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+const mapStyleUrl =
+  'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
 const pinOffsets = [
   [0, 0],
@@ -24,10 +27,13 @@ const navItems: { id: Page; label: string }[] = [
   { id: 'map', label: 'Map' },
   { id: 'table', label: 'Statistics Table' },
   { id: 'charts', label: 'Charts' },
+  { id: 'judges', label: 'Guest Judges' },
 ]
 
 const dashboardData = queryDragRaceStore(dashboardQueensQuery)
 const queenStats = dashboardData.queens
+const seasonStats = dashboardData.seasons
+const guestStats = dashboardData.guests
 
 function App() {
   const [activePage, setActivePage] = useState<Page>('map')
@@ -77,7 +83,14 @@ function App() {
     (total, queen) => total + queen.challengeWins,
     0,
   )
-  const totalLipSyncs = queenStats.reduce((total, queen) => total + queen.lipSyncs, 0)
+  const totalLipSyncs = queenStats.reduce(
+    (total, queen) => total + queen.lipSyncs,
+    0,
+  )
+  const totalGuestJudgeLinks = seasonStats.reduce(
+    (total, season) => total + season.guestJudges.length,
+    0,
+  )
 
   return (
     <div className="app-shell">
@@ -86,8 +99,9 @@ function App() {
           <p className="eyebrow">Drag Race Stats Visualizer</p>
           <h1>Track queens, hometowns, wins, and lip syncs.</h1>
           <p className="intro">
-            A Season 1 analytics dashboard for RuPaul's Drag Race with page-ready
-            layouts for a US map, searchable queen statistics, and chart cards.
+            A Season 1 analytics dashboard for RuPaul's Drag Race with
+            page-ready layouts for a US map, searchable queen statistics, and
+            chart cards.
           </p>
         </div>
         <div className="hero-card" aria-label="Dataset summary">
@@ -126,18 +140,30 @@ function App() {
             totalLipSyncs={totalLipSyncs}
           />
         )}
+        {activePage === 'judges' && (
+          <GuestJudgesPage
+            guests={guestStats}
+            seasons={seasonStats}
+            totalGuestJudgeLinks={totalGuestJudgeLinks}
+          />
+        )}
       </main>
     </div>
   )
 }
 
 function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
-  const [selectedQueen, setSelectedQueen] = useState<DashboardQueen | null>(null)
+  const [selectedQueen, setSelectedQueen] = useState<DashboardQueen | null>(
+    null,
+  )
   const uniqueStates = Object.keys(stateTotals).length
-  const queensByState = queenStats.reduce<Record<string, DashboardQueen[]>>((groups, queen) => {
-    groups[queen.state] = [...(groups[queen.state] ?? []), queen]
-    return groups
-  }, {})
+  const queensByState = queenStats.reduce<Record<string, DashboardQueen[]>>(
+    (groups, queen) => {
+      groups[queen.state] = [...(groups[queen.state] ?? []), queen]
+      return groups
+    },
+    {},
+  )
 
   return (
     <section className="page-grid map-layout" aria-labelledby="map-title">
@@ -176,7 +202,8 @@ function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
 
             {Object.entries(queensByState).flatMap(([state, queens]) =>
               queens.map((queen, queenIndex) => {
-                const [offsetLon, offsetLat] = pinOffsets[queenIndex % pinOffsets.length]
+                const [offsetLon, offsetLat] =
+                  pinOffsets[queenIndex % pinOffsets.length]
 
                 return (
                   <Marker
@@ -274,7 +301,8 @@ function TablePage({
           <p className="eyebrow">Table</p>
           <h2 id="table-title">Searchable queen statistics</h2>
           <p>
-            Filter by queen, city, state, region, season, placement, or franchise.
+            Filter by queen, city, state, region, season, placement, or
+            franchise.
           </p>
         </div>
         <label className="search-box">
@@ -322,6 +350,71 @@ function TablePage({
       {filteredQueens.length === 0 && (
         <p className="empty-state">No queens match that search yet.</p>
       )}
+    </section>
+  )
+}
+
+function GuestJudgesPage({
+  guests,
+  seasons,
+  totalGuestJudgeLinks,
+}: {
+  guests: DashboardGuest[]
+  seasons: DashboardSeason[]
+  totalGuestJudgeLinks: number
+}) {
+  return (
+    <section className="page-grid judges-layout" aria-labelledby="judges-title">
+      <div className="panel">
+        <div className="section-heading">
+          <p className="eyebrow">Guest judges</p>
+          <h2 id="judges-title">Season guest judge links</h2>
+          <p>
+            Guest judges now live in their own dataset and connect to seasons
+            through season links, so the same judge can be reused across
+            multiple seasons without duplicating their profile.
+          </p>
+        </div>
+
+        <div className="season-judge-list">
+          {seasons.map((season) => (
+            <article className="season-judge-card" key={season.id}>
+              <div>
+                <p className="season-label">Season</p>
+                <h3>{season.name}</h3>
+                <p>{season.queens.length} competing queens</p>
+              </div>
+              <ul aria-label={`Guest judges for ${season.name}`}>
+                {season.guestJudges.map((guest) => (
+                  <li key={guest.id}>{guest.name}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <aside className="panel stat-stack" aria-label="Guest judge summary">
+        <article className="metric-card">
+          <span>{guests.length}</span>
+          <p>guest judge profiles</p>
+        </article>
+        <article className="metric-card">
+          <span>{totalGuestJudgeLinks}</span>
+          <p>season judge links</p>
+        </article>
+        <div className="state-list guest-link-list">
+          <h3>Guest season index</h3>
+          {guests.map((guest) => (
+            <div key={guest.id}>
+              <span>{guest.name}</span>
+              <strong>
+                {guest.seasons.map((season) => season.name).join(', ')}
+              </strong>
+            </div>
+          ))}
+        </div>
+      </aside>
     </section>
   )
 }
