@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react'
 import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Marker,
+  ZoomableGroup,
+} from 'react-simple-maps'
+import {
   dashboardQueensQuery,
   queryDragRaceStore,
   type DashboardQueen,
@@ -8,78 +15,80 @@ import './App.css'
 
 type Page = 'map' | 'table' | 'charts'
 
-type StateTile = {
-  code: string
-  name: string
-  x: number
-  y: number
+type GeographyDatum = {
+  id?: string | number
+  rsmKey: string
+  properties?: {
+    name?: string
+  }
 }
 
-const stateTiles: StateTile[] = [
-  { code: 'AK', name: 'Alaska', x: 0, y: 0 },
-  { code: 'ME', name: 'Maine', x: 11, y: 0 },
-  { code: 'VT', name: 'Vermont', x: 9, y: 1 },
-  { code: 'NH', name: 'New Hampshire', x: 10, y: 1 },
-  { code: 'WA', name: 'Washington', x: 1, y: 2 },
-  { code: 'ID', name: 'Idaho', x: 2, y: 2 },
-  { code: 'MT', name: 'Montana', x: 3, y: 2 },
-  { code: 'ND', name: 'North Dakota', x: 4, y: 2 },
-  { code: 'MN', name: 'Minnesota', x: 5, y: 2 },
-  { code: 'IL', name: 'Illinois', x: 6, y: 2 },
-  { code: 'WI', name: 'Wisconsin', x: 7, y: 2 },
-  { code: 'MI', name: 'Michigan', x: 8, y: 2 },
-  { code: 'NY', name: 'New York', x: 9, y: 2 },
-  { code: 'MA', name: 'Massachusetts', x: 10, y: 2 },
-  { code: 'OR', name: 'Oregon', x: 1, y: 3 },
-  { code: 'NV', name: 'Nevada', x: 2, y: 3 },
-  { code: 'WY', name: 'Wyoming', x: 3, y: 3 },
-  { code: 'SD', name: 'South Dakota', x: 4, y: 3 },
-  { code: 'IA', name: 'Iowa', x: 5, y: 3 },
-  { code: 'IN', name: 'Indiana', x: 6, y: 3 },
-  { code: 'OH', name: 'Ohio', x: 7, y: 3 },
-  { code: 'PA', name: 'Pennsylvania', x: 8, y: 3 },
-  { code: 'NJ', name: 'New Jersey', x: 9, y: 3 },
-  { code: 'CT', name: 'Connecticut', x: 10, y: 3 },
-  { code: 'RI', name: 'Rhode Island', x: 11, y: 3 },
-  { code: 'CA', name: 'California', x: 1, y: 4 },
-  { code: 'UT', name: 'Utah', x: 2, y: 4 },
-  { code: 'CO', name: 'Colorado', x: 3, y: 4 },
-  { code: 'NE', name: 'Nebraska', x: 4, y: 4 },
-  { code: 'MO', name: 'Missouri', x: 5, y: 4 },
-  { code: 'KY', name: 'Kentucky', x: 6, y: 4 },
-  { code: 'WV', name: 'West Virginia', x: 7, y: 4 },
-  { code: 'VA', name: 'Virginia', x: 8, y: 4 },
-  { code: 'MD', name: 'Maryland', x: 9, y: 4 },
-  { code: 'DE', name: 'Delaware', x: 10, y: 4 },
-  { code: 'AZ', name: 'Arizona', x: 2, y: 5 },
-  { code: 'NM', name: 'New Mexico', x: 3, y: 5 },
-  { code: 'KS', name: 'Kansas', x: 4, y: 5 },
-  { code: 'AR', name: 'Arkansas', x: 5, y: 5 },
-  { code: 'TN', name: 'Tennessee', x: 6, y: 5 },
-  { code: 'NC', name: 'North Carolina', x: 7, y: 5 },
-  { code: 'SC', name: 'South Carolina', x: 8, y: 5 },
-  { code: 'DC', name: 'District of Columbia', x: 9, y: 5 },
-  { code: 'OK', name: 'Oklahoma', x: 4, y: 6 },
-  { code: 'LA', name: 'Louisiana', x: 5, y: 6 },
-  { code: 'MS', name: 'Mississippi', x: 6, y: 6 },
-  { code: 'AL', name: 'Alabama', x: 7, y: 6 },
-  { code: 'GA', name: 'Georgia', x: 8, y: 6 },
-  { code: 'HI', name: 'Hawaii', x: 0, y: 7 },
-  { code: 'TX', name: 'Texas', x: 4, y: 7 },
-  { code: 'FL', name: 'Florida', x: 9, y: 7 },
-]
+const usStatesGeoUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 
-const tileSize = 48
-const tileGap = 6
-const mapPadding = 10
-const mapWidth = 12 * (tileSize + tileGap) + mapPadding * 2
-const mapHeight = 8 * (tileSize + tileGap) + mapPadding * 2
+const stateFipsByCode: Record<string, string> = {
+  AL: '01',
+  AK: '02',
+  AZ: '04',
+  AR: '05',
+  CA: '06',
+  CO: '08',
+  CT: '09',
+  DE: '10',
+  DC: '11',
+  FL: '12',
+  GA: '13',
+  HI: '15',
+  ID: '16',
+  IL: '17',
+  IN: '18',
+  IA: '19',
+  KS: '20',
+  KY: '21',
+  LA: '22',
+  ME: '23',
+  MD: '24',
+  MA: '25',
+  MI: '26',
+  MN: '27',
+  MS: '28',
+  MO: '29',
+  MT: '30',
+  NE: '31',
+  NV: '32',
+  NH: '33',
+  NJ: '34',
+  NM: '35',
+  NY: '36',
+  NC: '37',
+  ND: '38',
+  OH: '39',
+  OK: '40',
+  OR: '41',
+  PA: '42',
+  RI: '44',
+  SC: '45',
+  SD: '46',
+  TN: '47',
+  TX: '48',
+  UT: '49',
+  VT: '50',
+  VA: '51',
+  WA: '53',
+  WV: '54',
+  WI: '55',
+  WY: '56',
+}
+
+const stateCodeByFips = Object.fromEntries(
+  Object.entries(stateFipsByCode).map(([code, fips]) => [fips, code]),
+)
+
 const pinOffsets = [
   [0, 0],
-  [-8, -7],
-  [8, -5],
-  [-7, 8],
-  [7, 8],
+  [-0.8, -0.55],
+  [0.8, -0.45],
+  [-0.65, 0.65],
+  [0.65, 0.65],
 ] as const
 
 const navItems: { id: Page; label: string }[] = [
@@ -195,7 +204,6 @@ function App() {
 
 function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
   const uniqueStates = Object.keys(stateTotals).length
-  const statesWithQueens = new Set(Object.keys(stateTotals))
   const queensByState = queenStats.reduce<Record<string, DashboardQueen[]>>((groups, queen) => {
     groups[queen.state] = [...(groups[queen.state] ?? []), queen]
     return groups
@@ -208,76 +216,66 @@ function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
           <p className="eyebrow">Map</p>
           <h2 id="map-title">US hometown view</h2>
           <p>
-            A full US state tile map replaces the old placeholder blob. States with
-            queens are highlighted, and hometown pins are grouped on their real
-            state so this can scale into a richer SVG mapping component later.
+            React Simple Maps now renders a geographic US state map with zoom and pan
+            support. Highlighted states show where featured queens come from, while
+            hometown markers use each queen's latitude and longitude.
           </p>
         </div>
 
         <div
           className="us-map"
           role="img"
-          aria-label="Tile map of the United States with queen hometown pins by state"
+          aria-label="Geographic map of the United States with queen hometown pins by state"
         >
-          <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} aria-hidden="true">
-            <defs>
-              <filter id="pin-shadow" x="-40%" y="-40%" width="180%" height="180%">
-                <feDropShadow
-                  dx="0"
-                  dy="3"
-                  floodColor="#481f5d"
-                  floodOpacity="0.22"
-                  stdDeviation="3"
-                />
-              </filter>
-            </defs>
-            {stateTiles.map((tile) => {
-              const tileQueens = queensByState[tile.code] ?? []
-              const represented = statesWithQueens.has(tile.code)
-              const x = mapPadding + tile.x * (tileSize + tileGap)
-              const y = mapPadding + tile.y * (tileSize + tileGap)
+          <ComposableMap
+            projection="geoAlbersUsa"
+            projectionConfig={{ scale: 1025 }}
+            width={980}
+            height={560}
+          >
+            <ZoomableGroup center={[-97, 38]} zoom={1} minZoom={1} maxZoom={4}>
+              <Geographies geography={usStatesGeoUrl}>
+                {({ geographies }: { geographies: unknown[] }) =>
+                  (geographies as GeographyDatum[]).map((geography) => {
+                    const stateFips = String(geography.id ?? '').padStart(2, '0')
+                    const stateCode = stateCodeByFips[stateFips]
+                    const totalQueens = stateCode ? stateTotals[stateCode] ?? 0 : 0
+                    const represented = totalQueens > 0
+                    const stateName = geography.properties?.name ?? stateCode ?? 'State'
 
-              return (
-                <g className="state-tile-group" key={tile.code}>
-                  <rect
-                    className={represented ? 'state-tile represented' : 'state-tile'}
-                    height={tileSize}
-                    rx="12"
-                    width={tileSize}
-                    x={x}
-                    y={y}
-                  >
-                    <title>{`${tile.name}${
-                      represented ? `: ${stateTotals[tile.code]} queens` : ''
-                    }`}</title>
-                  </rect>
-                  <text
-                    className={represented ? 'state-label represented' : 'state-label'}
-                    x={x + tileSize / 2}
-                    y={y + tileSize / 2 + 5}
-                  >
-                    {tile.code}
-                  </text>
-                  {tileQueens.map((queen, queenIndex) => {
-                    const [offsetX, offsetY] = pinOffsets[queenIndex % pinOffsets.length]
                     return (
-                      <g
-                        className="map-pin-group"
-                        key={queen.id}
-                        transform={`translate(${x + tileSize / 2 + offsetX} ${
-                          y + tileSize / 2 + offsetY
-                        })`}
-                      >
-                        <title>{`${queen.name} — ${queen.hometown}, ${queen.state}`}</title>
-                        <circle className="map-pin-halo" r={11 + tileQueens.length} />
-                        <circle className="map-pin" r="5.2" />
-                      </g>
+                      <Geography
+                        aria-label={`${stateName}${
+                          represented ? `, ${totalQueens} queens` : ''
+                        }`}
+                        className={represented ? 'state-geography represented' : 'state-geography'}
+                        geography={geography}
+                        key={geography.rsmKey}
+                      />
                     )
-                  })}
-                </g>
-              )
-            })}
-          </svg>
+                  })
+                }
+              </Geographies>
+
+              {Object.entries(queensByState).flatMap(([state, queens]) =>
+                queens.map((queen, queenIndex) => {
+                  const [offsetLon, offsetLat] = pinOffsets[queenIndex % pinOffsets.length]
+
+                  return (
+                    <Marker
+                      className="map-marker"
+                      coordinates={[queen.lon + offsetLon, queen.lat + offsetLat]}
+                      key={queen.id}
+                    >
+                      <title>{`${queen.name} — ${queen.hometown}, ${state}`}</title>
+                      <circle className="map-pin-halo" r={8 + queens.length} />
+                      <circle className="map-pin" r="5.2" />
+                    </Marker>
+                  )
+                }),
+              )}
+            </ZoomableGroup>
+          </ComposableMap>
         </div>
       </div>
 
