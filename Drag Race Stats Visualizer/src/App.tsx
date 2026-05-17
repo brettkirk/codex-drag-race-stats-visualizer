@@ -86,13 +86,13 @@ function App() {
           <p className="eyebrow">Drag Race Stats Visualizer</p>
           <h1>Track queens, hometowns, wins, and lip syncs.</h1>
           <p className="intro">
-            A starter analytics dashboard for RuPaul's Drag Race with page-ready
+            A Season 1 analytics dashboard for RuPaul's Drag Race with page-ready
             layouts for a US map, searchable queen statistics, and chart cards.
           </p>
         </div>
         <div className="hero-card" aria-label="Dataset summary">
           <span className="hero-number">{queenStats.length}</span>
-          <span>featured queens in the starter dataset</span>
+          <span>featured queens in the Season 1 dataset</span>
         </div>
       </header>
 
@@ -237,11 +237,11 @@ function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
           <p>states represented</p>
         </article>
         <article className="metric-card">
-          <span>{stateTotals.NY ?? 0}</span>
+          <span>{stateTotals['New York'] ?? 0}</span>
           <p>New York queens</p>
         </article>
         <article className="metric-card">
-          <span>{stateTotals.CA ?? 0}</span>
+          <span>{stateTotals.California ?? 0}</span>
           <p>California queens</p>
         </article>
         <div className="state-list">
