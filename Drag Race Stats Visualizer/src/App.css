@@ -130,41 +130,34 @@
   min-height: 360px;
 }
 
-.state-tile {
+.state-geography {
   fill: var(--map-fill);
+  outline: none;
   stroke: rgba(123, 92, 255, 0.42);
   stroke-linejoin: round;
-  stroke-width: 1.4;
+  stroke-width: 0.9;
   transition:
     fill 180ms ease,
-    stroke-color 180ms ease,
-    transform 180ms ease;
+    stroke 180ms ease,
+    stroke-width 180ms ease;
 }
 
-.state-tile.represented {
-  fill: rgba(123, 92, 255, 0.32);
+.state-geography.represented {
+  fill: rgba(123, 92, 255, 0.34);
   stroke: var(--accent);
+  stroke-width: 1.25;
 }
 
-.state-tile-group:hover .state-tile {
+.state-geography:hover,
+.state-geography:focus {
   fill: var(--accent-bg);
-  transform: translateY(-1px);
+  stroke: var(--hot-pink);
+  stroke-width: 1.6;
 }
 
-.state-label {
-  fill: var(--muted);
-  font-size: 0.84rem;
-  font-weight: 900;
+.map-marker {
+  filter: drop-shadow(0 3px 5px rgba(72, 31, 93, 0.28));
   pointer-events: none;
-  text-anchor: middle;
-}
-
-.state-label.represented {
-  fill: var(--text-h);
-}
-
-.map-pin-group {
-  filter: url('#pin-shadow');
 }
 
 .map-pin-halo {
