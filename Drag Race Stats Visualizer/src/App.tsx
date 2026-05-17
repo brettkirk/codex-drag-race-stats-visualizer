@@ -1,11 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  ZoomableGroup,
-} from 'react-simple-maps'
+import Map, { Marker, NavigationControl, Popup } from 'react-map-gl/maplibre'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import {
   dashboardQueensQuery,
   queryDragRaceStore,
@@ -15,80 +10,14 @@ import './App.css'
 
 type Page = 'map' | 'table' | 'charts'
 
-type GeographyDatum = {
-  id?: string | number
-  rsmKey: string
-  properties?: {
-    name?: string
-  }
-}
-
-const usStatesGeoUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
-
-const stateFipsByCode: Record<string, string> = {
-  AL: '01',
-  AK: '02',
-  AZ: '04',
-  AR: '05',
-  CA: '06',
-  CO: '08',
-  CT: '09',
-  DE: '10',
-  DC: '11',
-  FL: '12',
-  GA: '13',
-  HI: '15',
-  ID: '16',
-  IL: '17',
-  IN: '18',
-  IA: '19',
-  KS: '20',
-  KY: '21',
-  LA: '22',
-  ME: '23',
-  MD: '24',
-  MA: '25',
-  MI: '26',
-  MN: '27',
-  MS: '28',
-  MO: '29',
-  MT: '30',
-  NE: '31',
-  NV: '32',
-  NH: '33',
-  NJ: '34',
-  NM: '35',
-  NY: '36',
-  NC: '37',
-  ND: '38',
-  OH: '39',
-  OK: '40',
-  OR: '41',
-  PA: '42',
-  RI: '44',
-  SC: '45',
-  SD: '46',
-  TN: '47',
-  TX: '48',
-  UT: '49',
-  VT: '50',
-  VA: '51',
-  WA: '53',
-  WV: '54',
-  WI: '55',
-  WY: '56',
-}
-
-const stateCodeByFips = Object.fromEntries(
-  Object.entries(stateFipsByCode).map(([code, fips]) => [fips, code]),
-)
+const mapStyleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
 const pinOffsets = [
   [0, 0],
-  [-0.8, -0.55],
-  [0.8, -0.45],
-  [-0.65, 0.65],
-  [0.65, 0.65],
+  [-0.08, -0.055],
+  [0.08, -0.045],
+  [-0.065, 0.065],
+  [0.065, 0.065],
 ] as const
 
 const navItems: { id: Page; label: string }[] = [
@@ -203,6 +132,7 @@ function App() {
 }
 
 function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
+  const [selectedQueen, setSelectedQueen] = useState<DashboardQueen | null>(null)
   const uniqueStates = Object.keys(stateTotals).length
   const queensByState = queenStats.reduce<Record<string, DashboardQueen[]>>((groups, queen) => {
     groups[queen.state] = [...(groups[queen.state] ?? []), queen]
@@ -216,66 +146,88 @@ function MapPage({ stateTotals }: { stateTotals: Record<string, number> }) {
           <p className="eyebrow">Map</p>
           <h2 id="map-title">US hometown view</h2>
           <p>
-            React Simple Maps now renders a geographic US state map with zoom and pan
-            support. Highlighted states show where featured queens come from, while
-            hometown markers use each queen's latitude and longitude.
+            React Map GL and MapLibre render an interactive basemap with zoom,
+            pan, and hometown markers. Select a pin to see queen, city, state,
+            season, and placement details without needing a Mapbox token.
           </p>
         </div>
 
         <div
           className="us-map"
-          role="img"
-          aria-label="Geographic map of the United States with queen hometown pins by state"
+          role="region"
+          aria-label="Interactive map of the United States with queen hometown pins by state"
         >
-          <ComposableMap
-            projection="geoAlbersUsa"
-            projectionConfig={{ scale: 1025 }}
-            width={980}
-            height={560}
+          <Map
+            initialViewState={{
+              latitude: 39.5,
+              longitude: -98.35,
+              zoom: 3.15,
+            }}
+            mapStyle={mapStyleUrl}
+            maxBounds={[
+              [-128, 22],
+              [-64, 52],
+            ]}
+            maxZoom={8}
+            minZoom={2.4}
+            style={{ width: '100%', height: '100%' }}
           >
-            <ZoomableGroup center={[-97, 38]} zoom={1} minZoom={1} maxZoom={4}>
-              <Geographies geography={usStatesGeoUrl}>
-                {({ geographies }: { geographies: unknown[] }) =>
-                  (geographies as GeographyDatum[]).map((geography) => {
-                    const stateFips = String(geography.id ?? '').padStart(2, '0')
-                    const stateCode = stateCodeByFips[stateFips]
-                    const totalQueens = stateCode ? stateTotals[stateCode] ?? 0 : 0
-                    const represented = totalQueens > 0
-                    const stateName = geography.properties?.name ?? stateCode ?? 'State'
+            <NavigationControl position="top-right" showCompass={false} />
 
-                    return (
-                      <Geography
-                        aria-label={`${stateName}${
-                          represented ? `, ${totalQueens} queens` : ''
-                        }`}
-                        className={represented ? 'state-geography represented' : 'state-geography'}
-                        geography={geography}
-                        key={geography.rsmKey}
-                      />
-                    )
-                  })
-                }
-              </Geographies>
+            {Object.entries(queensByState).flatMap(([state, queens]) =>
+              queens.map((queen, queenIndex) => {
+                const [offsetLon, offsetLat] = pinOffsets[queenIndex % pinOffsets.length]
 
-              {Object.entries(queensByState).flatMap(([state, queens]) =>
-                queens.map((queen, queenIndex) => {
-                  const [offsetLon, offsetLat] = pinOffsets[queenIndex % pinOffsets.length]
-
-                  return (
-                    <Marker
+                return (
+                  <Marker
+                    anchor="bottom"
+                    key={queen.id}
+                    latitude={queen.lat + offsetLat}
+                    longitude={queen.lon + offsetLon}
+                  >
+                    <button
+                      type="button"
                       className="map-marker"
-                      coordinates={[queen.lon + offsetLon, queen.lat + offsetLat]}
-                      key={queen.id}
+                      aria-label={`${queen.name} from ${queen.hometown}, ${state}`}
+                      onClick={() => setSelectedQueen(queen)}
                     >
-                      <title>{`${queen.name} — ${queen.hometown}, ${state}`}</title>
-                      <circle className="map-pin-halo" r={8 + queens.length} />
-                      <circle className="map-pin" r="5.2" />
-                    </Marker>
-                  )
-                }),
-              )}
-            </ZoomableGroup>
-          </ComposableMap>
+                      <span className="map-pin-halo" />
+                      <span className="map-pin" />
+                    </button>
+                  </Marker>
+                )
+              }),
+            )}
+
+            {selectedQueen && (
+              <Popup
+                anchor="top"
+                className="queen-popup"
+                closeButton
+                closeOnClick={false}
+                latitude={selectedQueen.lat}
+                longitude={selectedQueen.lon}
+                maxWidth="260px"
+                offset={14}
+                onClose={() => setSelectedQueen(null)}
+              >
+                <h3>{selectedQueen.name}</h3>
+                <p>
+                  {selectedQueen.hometown}, {selectedQueen.state}
+                </p>
+                <dl>
+                  <div>
+                    <dt>Season</dt>
+                    <dd>{selectedQueen.primarySeasonName}</dd>
+                  </div>
+                  <div>
+                    <dt>Placement</dt>
+                    <dd>{selectedQueen.placementsLabel}</dd>
+                  </div>
+                </dl>
+              </Popup>
+            )}
+          </Map>
         </div>
       </div>
 
