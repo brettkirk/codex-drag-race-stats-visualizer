@@ -11,6 +11,7 @@ export type Guest = {
 export type Season = {
   id: number
   name: string
+  year: number
   queens: Queen[]
   appearances: QueenSeasonAppearance[]
   guestJudges: Guest[]
@@ -47,6 +48,7 @@ export type DashboardQueen = Omit<Queen, 'seasons' | 'appearances'> & {
   seasons: {
     id: number
     name: string
+    year: number
     placement: string
   }[]
   primarySeasonName: string
@@ -59,12 +61,14 @@ export type DashboardGuest = {
   seasons: {
     id: number
     name: string
+    year: number
   }[]
 }
 
 export type DashboardSeason = {
   id: number
   name: string
+  year: number
   queens: {
     id: number
     name: string
@@ -101,6 +105,7 @@ export const dragRaceGraphqlSchema = /* GraphQL */ `
   type Season {
     id: Int!
     name: String!
+    year: Int!
     queens: [Queen!]!
     appearances: [QueenSeasonAppearance!]!
     guestJudges: [Guest!]!
@@ -150,11 +155,13 @@ export const dashboardQueensQuery = /* GraphQL */ `
       seasons {
         id
         name
+        year
       }
       appearances {
         season {
           id
           name
+          year
         }
         placement
       }
@@ -162,6 +169,7 @@ export const dashboardQueensQuery = /* GraphQL */ `
     seasons {
       id
       name
+      year
       queens {
         id
         name
@@ -185,6 +193,7 @@ export const dashboardQueensQuery = /* GraphQL */ `
       seasons {
         id
         name
+        year
       }
     }
   }
@@ -1582,38 +1591,47 @@ const seasonRecords: SeasonRecord[] = [
   {
     id: 1,
     name: 'RuPaul’s Drag Race Season 1',
+    year: 2009,
   },
   {
     id: 2,
     name: 'RuPaul’s Drag Race Season 2',
+    year: 2010,
   },
   {
     id: 3,
     name: 'RuPaul’s Drag Race Season 3',
+    year: 2011,
   },
   {
     id: 4,
     name: 'RuPaul’s Drag Race Season 4',
+    year: 2012,
   },
   {
     id: 5,
     name: 'RuPaul’s Drag Race Season 5',
+    year: 2013,
   },
   {
     id: 6,
     name: 'RuPaul’s Drag Race Season 6',
+    year: 2014,
   },
   {
     id: 7,
     name: 'RuPaul’s Drag Race Season 7',
+    year: 2015,
   },
   {
     id: 8,
     name: 'RuPaul’s Drag Race Season 8',
+    year: 2016,
   },
   {
     id: 9,
     name: 'RuPaul’s Drag Race Season 9',
+    year: 2017,
   },
 ]
 
@@ -1954,11 +1972,13 @@ type DragRaceQueryResult = {
     seasons?: {
       id: number
       name: string
+      year: number
     }[]
     appearances?: {
       season: {
         id: number
         name: string
+        year: number
       }
       placement: string
     }[]
@@ -1985,6 +2005,7 @@ type DragRaceQueryResult = {
     seasons?: {
       id: number
       name: string
+      year: number
     }[]
   })[]
 }
@@ -2175,6 +2196,7 @@ function normalizeDashboardQueens(
       const seasons = (queen.appearances ?? []).map((appearance) => ({
         id: appearance.season.id,
         name: appearance.season.name,
+        year: appearance.season.year,
         placement: appearance.placement,
       }))
 
@@ -2239,6 +2261,7 @@ function normalizeDashboardData(data: DragRaceQueryResult): DashboardData {
     seasons: data.seasons.map((season) => ({
       id: season.id,
       name: season.name,
+      year: season.year,
       guestJudges: season.guestJudges ?? [],
       queens: (season.appearances ?? []).map((appearance) => ({
         id:
