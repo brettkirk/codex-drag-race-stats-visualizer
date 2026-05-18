@@ -31,6 +31,10 @@ export type Queen = {
   challengeWins: number
   lipSyncs: number
   franchise: string
+  isMissCongeniality: boolean
+  isWinner: boolean
+  isFirstOut: boolean
+  isSheDoneAlreadyDoneHadHers: boolean
 }
 
 export type QueenSeasonAppearance = {
@@ -100,6 +104,10 @@ export const dragRaceGraphqlSchema = /* GraphQL */ `
     challengeWins: Int!
     lipSyncs: Int!
     franchise: String!
+    isMissCongeniality: Boolean!
+    isWinner: Boolean!
+    isFirstOut: Boolean!
+    isSheDoneAlreadyDoneHadHers: Boolean!
   }
 
   type Season {
@@ -152,6 +160,10 @@ export const dashboardQueensQuery = /* GraphQL */ `
       challengeWins
       lipSyncs
       franchise
+      isMissCongeniality
+      isWinner
+      isFirstOut
+      isSheDoneAlreadyDoneHadHers
       seasons {
         id
         name
@@ -199,7 +211,15 @@ export const dashboardQueensQuery = /* GraphQL */ `
   }
 `
 
-type QueenRecord = Omit<Queen, 'seasons' | 'appearances'>
+type QueenRecord = Omit<
+  Queen,
+  | 'seasons'
+  | 'appearances'
+  | 'isMissCongeniality'
+  | 'isWinner'
+  | 'isFirstOut'
+  | 'isSheDoneAlreadyDoneHadHers'
+>
 type SeasonRecord = Omit<
   Season,
   'queens' | 'appearances' | 'guestJudges' | 'guestJudgeAppearances'
@@ -3946,10 +3966,17 @@ type ResolvedGuestJudgeAppearance = {
   season: ResolvedSeason
 }
 
-type ResolvedQueen = QueenRecord & {
-  seasons: () => ResolvedSeason[]
-  appearances: () => ResolvedAppearance[]
-}
+type ResolvedQueen = QueenRecord &
+  Pick<
+    Queen,
+    | 'isMissCongeniality'
+    | 'isWinner'
+    | 'isFirstOut'
+    | 'isSheDoneAlreadyDoneHadHers'
+  > & {
+    seasons: () => ResolvedSeason[]
+    appearances: () => ResolvedAppearance[]
+  }
 
 type ResolvedSeason = SeasonRecord & {
   queens: () => ResolvedQueen[]
@@ -4005,11 +4032,59 @@ function getGuestJudgeAppearancesForSeason(
     }))
 }
 
+function parsePlacementRank(placement: string): number | undefined {
+  return Number.parseInt(placement, 10) || undefined
+}
+
+function isFirstOutAppearance(appearance: AppearanceRecord) {
+  const placementRank = parsePlacementRank(appearance.placement)
+
+  if (!placementRank) {
+    return false
+  }
+
+  const lastPlacementRank = Math.max(
+    ...appearanceRecords
+      .filter(
+        (seasonAppearance) =>
+          seasonAppearance.seasonId === appearance.seasonId,
+      )
+      .map(
+        (seasonAppearance) =>
+          parsePlacementRank(seasonAppearance.placement) ?? 0,
+      ),
+  )
+
+  return placementRank === lastPlacementRank
+}
+
+function getQueenSchemaFlags(queenId: number) {
+  const appearances = appearanceRecords.filter(
+    (appearance) => appearance.queenId === queenId,
+  )
+
+  return {
+    isMissCongeniality: appearances.some((appearance) =>
+      appearance.placement.includes('Miss Congeniality'),
+    ),
+    isWinner: appearances.some((appearance) =>
+      appearance.placement.startsWith('Winner'),
+    ),
+    isFirstOut: appearances.some((appearance) =>
+      isFirstOutAppearance(appearance),
+    ),
+    isSheDoneAlreadyDoneHadHers: appearances.some((appearance) =>
+      appearance.placement.includes('She Done Already Done Had Hers'),
+    ),
+  }
+}
+
 function getQueenById(queenId: number): ResolvedQueen {
   const queen = requireRecord(queenById.get(queenId), `queen ${queenId}`)
 
   return {
     ...queen,
+    ...getQueenSchemaFlags(queen.id),
     appearances: () => getAppearancesForQueen(queen.id),
     seasons: () =>
       getAppearancesForQueen(queen.id).map((appearance) => appearance.season),
@@ -4118,6 +4193,11 @@ function normalizeDashboardQueens(
         })
         existingQueen.challengeWins += queen.challengeWins
         existingQueen.lipSyncs += queen.lipSyncs
+        existingQueen.isMissCongeniality ||= queen.isMissCongeniality
+        existingQueen.isWinner ||= queen.isWinner
+        existingQueen.isFirstOut ||= queen.isFirstOut
+        existingQueen.isSheDoneAlreadyDoneHadHers ||=
+          queen.isSheDoneAlreadyDoneHadHers
 
         return dedupedQueens
       }
@@ -4133,6 +4213,10 @@ function normalizeDashboardQueens(
         challengeWins: queen.challengeWins,
         lipSyncs: queen.lipSyncs,
         franchise: queen.franchise,
+        isMissCongeniality: queen.isMissCongeniality,
+        isWinner: queen.isWinner,
+        isFirstOut: queen.isFirstOut,
+        isSheDoneAlreadyDoneHadHers: queen.isSheDoneAlreadyDoneHadHers,
         seasonsById: new Map(seasons.map((season) => [season.id, season])),
       })
 
@@ -4155,6 +4239,10 @@ function normalizeDashboardQueens(
       challengeWins: queen.challengeWins,
       lipSyncs: queen.lipSyncs,
       franchise: queen.franchise,
+      isMissCongeniality: queen.isMissCongeniality,
+      isWinner: queen.isWinner,
+      isFirstOut: queen.isFirstOut,
+      isSheDoneAlreadyDoneHadHers: queen.isSheDoneAlreadyDoneHadHers,
       seasons,
       primarySeasonName: getSeasonNamesLabel(seasons),
       placementsLabel: getPlacementLabel(seasons),
